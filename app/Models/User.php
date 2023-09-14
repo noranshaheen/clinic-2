@@ -21,6 +21,15 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
+        'image'
+    ];
+
+    public static $store_rules = [
+        'name' => ['required', 'string', 'max:255'],
+        'email' => ['required', 'email', 'max:255', 'unique:' . User::class],
+        'password' => ['required', 'max:100', 'min:6'],
+        'image' => ['nullable', 'image', 'mimes:jpg,png,jpej'],
     ];
 
     /**
