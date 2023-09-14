@@ -4,37 +4,31 @@ namespace App\Http\Controllers\API\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreMajorRequest;
+use App\Http\Traits\ApiTrait;
 use App\Models\Major;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 
 class MajorController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    use ApiTrait;
     public function index()
     {
-        $majors = Major::paginate(6);
-        return view('Admin.Pages.Majors.index', compact('majors'));
+        $majors = Major::get();
+        return $this->apiResponse(200, 'All majors', 'null', $majors);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        return view('Admin.Pages.Majors.create');
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(StoreMajorRequest $request)
+    public function store(Request $request)
     {
         //validation
-        $data = $request->validated();
-
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'max:255'],
+            'image' => ['nullable', 'image', 'mimes:jpg,png,jpej'],
+        ]);
+        if ($validator->fails()) {
+            return $this->apiResponse(400, 'Validation error', $validator->errors(), 'null');
+        }
 
         //upload image
         $full_name = '';
@@ -43,47 +37,42 @@ class MajorController extends Controller
             $img_ext = $request->file('image')->getClientOriginalExtension();
             // $img_name = $request->file('image')->getClientOriginalName();
 
-            $full_name =  time().rand(1,10000).".". $img_ext;
+            $full_name =  time() . rand(1, 10000) . "." . $img_ext;
             $request->file('image')->move(public_path('Admin\images\uploads\majors'), $full_name);
         }
 
         //store
-        Major::create([
-            'name' => $data['name'],
+        $major = Major::create([
+            'name' => $request->name,
             'image' => "Admin\\images\\uploads\\majors\\" . $full_name,
         ]);
 
-
-        //redirect
-        return redirect()->route('admin.majors.index')->with('success', "the major stored successfuly");
-    
+        return $this->apiResponse(201, 'Major created', 'null', $major);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Major $major)
+    public function show($id)
     {
-        //
+        $major = Major::find($id);
+        if (!$major) {
+            return $this->apiResponse(404, 'major not found', 'Major not found', 'null');
+        }
+        return $this->apiResponse(200, 'major found', 'null', $major);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Major $major)
+    public function update(Request $request, $id)
     {
-        return view('Admin.Pages.Majors.edit', compact('major'));
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(StoreMajorRequest $request, Major $major)
-    {
-         //validation
-        $data= $request->validated();
-
-        // dd($data);
+        $major = Major::find($id);
+        if (!$major) {
+            return $this->apiResponse(404, 'major not found', 'Major not found', 'null');
+        }
+        //validation
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'max:255'],
+            'image' => ['nullable', 'image', 'mimes:jpg,png,jpej'],
+        ]);
+        if ($validator->fails()) {
+            return $this->apiResponse(400, 'Validation error', $validator->errors(), 'null');
+        }
 
         //upload image
         $full_name = '';
@@ -96,31 +85,30 @@ class MajorController extends Controller
             $img_ext = $request->file('image')->getClientOriginalExtension();
             // $img_name = $request->file('image')->getClientOriginalName();
 
-            $full_name =  time().rand(1,10000).".". $img_ext;
+            $full_name =  time() . rand(1, 10000) . "." . $img_ext;
             $request->file('image')->move(public_path('Admin\images\uploads\majors'), $full_name);
         }
 
-         //update 
-         $major->update([
-            'name' => $data['name'],
-            'image' => $data['image'] ? 
-                        "Admin\\images\\uploads\\majors\\" . $full_name : $major->image,
+        //update 
+        $major->update([
+            'name' => $request->name,
+            'image' => $request->image ?
+                "Admin\\images\\uploads\\majors\\" . $full_name : $major->image,
         ]);
-
-        //redirect
-        return redirect()->route('admin.majors.index')->with('success', "the major updated successfuly");
-
+        return $this->apiResponse(200, 'major updated', 'null', $major);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Major $major)
+    public function destroy($id)
     {
-        if ($major->image)
-            unlink(public_path($major->image));
-        $major->delete();
-        return redirect()->route('admin.majors.index')->with('success', "the major deleted successfuly");
-        
+        $major = Major::findOrFail($id);
+        if (!$major) {
+            return $this->apiResponse(404, 'major not found', 'major not found', 'null');
+        } else {
+            if ($major->image) {
+                unlink(public_path($major->image));
+            }
+            $major->delete();
+            return $this->apiResponse(200, 'major deleted', 'null', 'null');
+        }
     }
 }

@@ -3,22 +3,24 @@
 namespace App\Http\Controllers\API\User;
 
 use App\Http\Controllers\Controller;
+use App\Http\Traits\ApiTrait;
 use App\Models\Doctor;
 use Illuminate\Http\Request;
 
 class DoctorController extends Controller
 {
+    use ApiTrait;
     /**
      * Display a listing of the resource.
      */
     public function index($id = null)
     {
         if(!$id){
-            $doctors = Doctor::with('major')->paginate(5);
-            return view('User.Pages.Doctors.index',compact('doctors'));
+            $doctors = Doctor::with('major')->get();
+            return $this->apiResponse(200, 'All Doctors', 'null', $doctors);
         }else{
-            $doctors = Doctor::with('major')->where('major_id','=',$id)->paginate(5);
-            return view('User.Pages.Doctors.index',compact('doctors'));
+            $doctors = Doctor::with('major')->where('major_id','=',$id)->get();
+            return $this->apiResponse(200, 'All Doctors', 'null', $doctors);
         }
     }
 

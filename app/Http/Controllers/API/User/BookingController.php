@@ -8,45 +8,43 @@ use App\Models\Booking;
 use App\Models\Doctor;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use App\Http\Traits\ApiTrait;
+
 
 class BookingController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    use ApiTrait;
     public function index()
     {
-        //
+        $bookings = Booking::with('doctor')->get();
+        return $this->apiResponse(200, 'All Bookings', 'null', $bookings);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create($doctor_id)
+    public function store(Request $request,$doctor_id)
     {
+        //validation
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
+            'phone' => ['required', 'max:100', 'min:6'],
+            'date' => ['required', 'date'],
+        ]);
+        if ($validator->fails()) {
+            return $this->apiResponse(400, 'Validation error', $validator->errors(), 'null');
+        }
 
-        $doctor = Doctor::with('major')->where('id','=',$doctor_id)->first();
-        return view('User.Pages.Booking.create',compact('doctor'));
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(StoreBookingRequest $request,$doctor_id)
-    {
-        // dd($request, $doctor_id);
-        $data=$request->validated();
-
-        Booking::create([
-            'name'=>$data['name'],
-            'phone' =>$data['phone'],
-            'date' => $data['date'],
-            'email' => $data['email'],
-            'doctor_id' => $doctor_id
+        //store
+        $booking = Booking::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'date' => $request->date,
+            'doctor_id' => $doctor_id 
         ]);
 
-        $doctor = Doctor::with('major')->where('id','=',$doctor_id)->first();
-        return view('User.Pages.Booking.create',compact('doctor'))->with('success','booking stored successfuly');
+        return $this->apiResponse(201, 'booking created', 'null', $booking);
+
     }
 
     /**

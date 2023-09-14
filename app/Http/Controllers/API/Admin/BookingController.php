@@ -7,97 +7,98 @@ use App\Http\Requests\Admin\StoreBookingRequest;
 use App\Models\Booking;
 use App\Models\Doctor;
 use Illuminate\Http\Request;
-use PhpParser\Comment\Doc;
+use App\Http\Traits\ApiTrait;
+use Dotenv\Validator;
+use Illuminate\Support\Facades\Validator as FacadesValidator;
 
 class BookingController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    use ApiTrait;
     public function index()
     {
-        $bookings = Booking::with('doctor')->paginate(6);
-        return view('Admin.Pages.Bookings.index', compact('bookings'));
+        $bookings = Booking::with('doctor')->get();
+        return $this->apiResponse(200, 'All Bookings', 'null', $bookings);
+
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    public function store(Request $request)
     {
-        $doctors = Doctor::get();
-        return view('Admin.Pages.Bookings.create',compact('doctors'));
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(StoreBookingRequest $request)
-    {
-          //validation
-          $data=$request->validated();
+        //validation
+        $validator = FacadesValidator::make($request->all(), [
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
+            'phone' => ['required', 'max:100', 'min:6'],
+            'date' => ['required', 'date'],
+            'doctor_id' => ['required','exists:doctors,id']
+        ]);
+        if ($validator->fails()) {
+            return $this->apiResponse(400, 'Validation error', $validator->errors(), 'null');
+        }
 
         //store
-        Booking::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'phone' => $data['phone'],
-            'date' => $data['date'],
-            'doctor_id' => $data['doctor_id']
+        $booking = Booking::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'date' => $request->date,
+            'doctor_id' => $request->doctor_id
         ]);
 
-        //redirect
-        return redirect()->route('admin.bookings.index')->with('success', "the booking stored successfuly");
+        return $this->apiResponse(201, 'booking created', 'null', $booking);
 
     }
+     public function show($id)
+     {
+         $booking= Booking::find($id);
+         if (!$booking) {
+             return $this->apiResponse(404, 'booking not found', 'booking not found', 'null');
+         }
+         return $this->apiResponse(200, 'booking found', 'null', $booking);
+     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Booking $booking)
+    public function update(Request $request,$id)
     {
-        //
-    }
+        $booking= Booking::find($id);
+        if (!$booking) {
+            return $this->apiResponse(404, 'booking not found', 'booking not found', 'null');
+        }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Booking $booking)
-    {
-        $doctors = Doctor::get();
-        return view('Admin.Pages.Bookings.edit', compact(['doctors', 'booking']));
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(StoreBookingRequest $request, Booking $booking)
-    {
-    
-        //validation
-        $data = $request->validated();
+         //validation
+         $validator = FacadesValidator::make($request->all(), [
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
+            'phone' => ['required', 'max:100', 'min:6'],
+            'date' => ['required', 'date'],
+            'doctor_id' => ['required','exists:doctors,id']
+        ]);
+        if ($validator->fails()) {
+            return $this->apiResponse(400, 'Validation error', $validator->errors(), 'null');
+        }
 
         //store
         $booking->update([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'phone' => $data['phone'],
-            'date' => $data['date'],
-            'doctor_id' => $data['doctor_id']
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'date' => $request->date,
+            'doctor_id' => $request->doctor_id
         ]);
 
-        //redirect
-        return redirect()->route('admin.bookings.index')->with('success', "the booking updated successfuly");
+        return $this->apiResponse(200, 'booking updated', 'null', $booking);
 
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Booking $booking)
+    public function destroy($id)
     {
-        $booking->delete();
-        return redirect()->route('admin.bookings.index')->with('success', "the booking deleted successfuly");
-
+        $booking = Booking::findOrFail($id);
+        if (!$booking) {
+            return $this->apiResponse(404, 'booking not found', 'booking not found', 'null');
+        } else {
+            $booking->delete();
+            return $this->apiResponse(200, 'booking deleted', 'null', 'null');
+        }
     }
 }

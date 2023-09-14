@@ -7,6 +7,8 @@ use App\Http\Requests\Admin\StoreDoctorRequest;
 use App\Models\Doctor;
 use App\Models\Major;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use PhpParser\Comment\Doc;
 
 class DoctorController extends Controller
 {
@@ -15,32 +17,26 @@ class DoctorController extends Controller
      */
     public function index()
     {
-        $doctors = Doctor::with('major')->paginate(6);
-        return view('Admin.Pages.Doctors.index', compact('doctors'));
+        $doctors = Doctor::with('major')->get();
+        return $this->apiResponse(200, 'All Doctors', 'null', $doctors);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        $majors = Major::get();
-        return view('Admin.Pages.Doctors.create', compact('majors'));
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(StoreDoctorRequest $request)
+    public function store(Request $request)
     {
         //validation
-        $data = $request->validated();
-
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'max:255'],
+            'image' => ['nullable', 'image', 'mimes:jpg,png,jpej'],
+            'major_id' => ['required', 'exists:majors,id']
+        ]);
+        if ($validator->fails()) {
+            return $this->apiResponse(400, 'Validation error', $validator->errors(), 'null');
+        }
 
         //upload image
         $full_name = '';
 
-        if ($data['image']) {
+        if ($request->image) {
             $img_ext = $request->file('image')->getClientOriginalExtension();
             // $img_name = $request->file('image')->getClientOriginalName();
 
@@ -49,44 +45,44 @@ class DoctorController extends Controller
         }
 
         //store
-        Doctor::create([
-            'name' => $data['name'],
+        $doctor= Doctor::create([
+            'name' => $request->name,
             'image' => "Admin\\images\\uploads\\doctors\\" . $full_name,
-            'major_id' => $data['major_id']
+            'major_id' => $request->major_id
         ]);
 
-        //redirect
-        return redirect()->route('admin.doctors.index')->with('success', "the doctor stored successfuly");
+        return $this->apiResponse(201, 'Doctor created', 'null', $doctor);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Doctor $doctor)
+    public function show($id)
     {
-        //
+        $doctor = Doctor::find($id);
+        if (!$doctor) {
+            return $this->apiResponse(404, 'doctor not found', 'doctor not found', 'null');
+        }
+        return $this->apiResponse(200, 'doctor found', 'null', $doctor);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Doctor $doctor)
+    public function update(Request $request,$id)
     {
-        $majors = Major::get();
-        return view('Admin.Pages.Doctors.edit', compact(['doctor', 'majors']));
-    }
+        $doctor = Doctor::findOrFail($id);
+        if (!$doctor) {
+            return $this->apiResponse(404, 'doctor not found', 'doctor not found', 'null');
+        }
+        //validation
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'max:255'],
+            'image' => ['nullable', 'image', 'mimes:jpg,png,jpej'],
+            'major_id' => ['required', 'exists:majors,id']
+        ]);
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(StoreDoctorRequest $request, Doctor $doctor)
-    {
-        $data = $request->validated();
-
+        if ($validator->fails()) {
+            return $this->apiResponse(400, 'Validation error', $validator->errors(), 'null');
+        }
         //upload image
         $full_name = '';
 
-        if ($data['image']) {
+        if ($request->image) {
 
             if ($doctor->image) {
                 unlink(public_path($doctor->image));
@@ -99,24 +95,26 @@ class DoctorController extends Controller
         }
         //update 
         $doctor->update([
-            'name' => $data['name'],
+            'name' => $request->name,
             'image' => "Admin\\images\\uploads\\doctors\\" . $full_name,
-            'major_id' => $data['major_id']
+            'major_id' => $request->major_id
         ]);
 
-        //redirect
-        return redirect()->route('admin.doctors.index')->with('success', "the doctor updated successfuly");
+        return $this->apiResponse(200, 'doctor updated', 'null', $doctor);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Doctor $doctor)
+    public function destroy($id)
     {
-        if ($doctor->image) {
-            unlink(public_path($doctor->image));
+        $doctor = Doctor::findOrFail($id);
+        if (!$doctor) {
+            return $this->apiResponse(404, 'doctor not found', 'doctor not found', 'null');
+        } else {
+            if ($doctor->image) {
+                unlink(public_path($doctor->image));
+            }
+            $doctor->delete();
+            return $this->apiResponse(200, 'doctor deleted', 'null', 'null');
         }
-        $doctor->delete();
-        return redirect()->route('admin.doctors.index')->with('success', "the doctor deeted successfuly");
     }
 }
+

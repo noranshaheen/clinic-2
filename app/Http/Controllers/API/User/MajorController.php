@@ -3,18 +3,20 @@
 namespace App\Http\Controllers\API\User;
 
 use App\Http\Controllers\Controller;
+use App\Http\Traits\ApiTrait;
 use App\Models\Major;
 use Illuminate\Http\Request;
 
 class MajorController extends Controller
 {
+    use ApiTrait;
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $majors = Major::paginate(5);
-        return view('User.Pages.Majors.index',compact('majors'));
+        $majors = Major::get();
+        return $this->apiResponse(200, 'All majors', 'null', $majors);
     }
 
     /**
